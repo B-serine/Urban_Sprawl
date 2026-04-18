@@ -148,7 +148,7 @@ This repository provides:
 
 ### 1️⃣ Clone Repository
 
-git clone https://github.com/your-username/urban-sprawl-analysis.git
+git clone https://github.com/B-serine/Urban_Sprawl.git
 cd urban-sprawl-analysis
 
 ### 2️⃣ Install Dependencies
