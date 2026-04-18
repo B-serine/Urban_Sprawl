@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Urban Sprawl Dashboard (2000–2024)</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --red:#c0392b;--red-light:#e74c3c;--red-pale:#f5c6c2;
+  --teal:#1abc9c;--teal-dark:#16a085;--cyan:#4fc3f7;
+  --green:#27ae60;--bg:#f7f8fa;--card:#fff;--border:#e2e6ea;
+  --text:#1a1a2e;--muted:#6c757d;--font:'IBM Plex Sans',sans-serif;--mono:'IBM Plex Mono',monospace;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13px;line-height:1.5}
+
+/* TOP BAR */
+.topbar{background:#fff;border-bottom:1px solid var(--border);padding:0 24px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.topbar h1{font-size:16px;font-weight:700;color:var(--red);letter-spacing:-.3px;font-family:var(--mono)}
+.topbar-icons{display:flex;gap:16px}
+.topbar-icons button{background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px;padding:4px;transition:color .2s}
+.topbar-icons button:hover{color:var(--red)}
+
+/* FILTER BAR */
+.filterbar{background:#fff;border:1px solid var(--border);border-radius:8px;margin:16px 24px;padding:14px 20px;display:flex;align-items:center;gap:32px;flex-wrap:wrap}
+.filter-group{display:flex;flex-direction:column;gap:6px}
+.filter-label{font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
+.city-select{appearance:none;border:1px solid var(--border);border-radius:6px;padding:6px 32px 6px 12px;font-family:var(--font);font-size:13px;font-weight:500;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236c757d'/%3E%3C/svg%3E") no-repeat right 10px center;cursor:pointer;min-width:180px}
+.year-btns{display:flex;gap:4px}
+.year-btn{border:1px solid var(--border);background:#fff;padding:5px 14px;border-radius:5px;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;font-family:var(--font)}
+.year-btn:hover{border-color:var(--red);color:var(--red)}
+.year-btn.active{background:var(--red);color:#fff;border-color:var(--red)}
+.toggle-wrap{display:flex;align-items:center;gap:10px;margin-left:auto}
+.toggle{position:relative;width:42px;height:22px}
+.toggle input{opacity:0;width:0;height:0}
+.slider{position:absolute;inset:0;background:#ccc;border-radius:22px;cursor:pointer;transition:.3s}
+.slider::before{content:'';position:absolute;width:16px;height:16px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.3s}
+.toggle input:checked+.slider{background:var(--teal)}
+.toggle input:checked+.slider::before{transform:translateX(20px)}
+
+/* MAPS */
+.maps-row{display:grid;grid-template-columns:1fr 1fr;margin:0 24px;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.map-panel{position:relative;height:320px;overflow:hidden}
+.map-panel+.map-panel{border-left:1px solid var(--border)}
+.map-label{position:absolute;top:10px;left:10px;background:rgba(255,255,255,.92);border:1px solid var(--border);border-radius:4px;padding:3px 8px;font-size:11px;font-weight:500;z-index:5;backdrop-filter:blur(4px)}
+.map-overlay-label{position:absolute;pointer-events:none;z-index:4;font-weight:700}
+.map-credit{position:absolute;bottom:8px;left:8px;z-index:5;background:rgba(255,255,255,.85);border:1px solid #ccc;border-radius:3px;padding:2px 6px;font-size:9px;font-family:var(--mono)}
+
+/* METRICS */
+.metrics-row{display:grid;grid-template-columns:repeat(4,1fr);margin:16px 24px;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#fff}
+.metric-card{padding:18px 20px;border-right:1px solid var(--border);position:relative}
+.metric-card:last-child{border-right:none}
+.metric-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--red)}
+.metric-card:nth-child(2)::before{background:var(--teal)}
+.metric-card:nth-child(4)::before{background:var(--muted)}
+.metric-label{font-size:10px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.metric-value{font-size:26px;font-weight:700;font-family:var(--mono);color:var(--text);line-height:1}
+.metric-value span{font-size:13px;font-weight:400;margin-left:2px;color:var(--muted)}
+.metric-badge{display:inline-flex;align-items:center;gap:4px;margin-top:8px;font-size:11px;font-weight:500;padding:2px 8px;border-radius:20px}
+.badge-red{background:#fdecea;color:var(--red)}
+.badge-teal{background:#e0f5f0;color:var(--teal-dark)}
+.badge-orange{background:#fef3e2;color:#e67e22}
+.badge-gray{background:#f0f2f5;color:var(--muted)}
+
+/* CHARTS */
+.charts-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin:0 24px 16px}
+.chart-card{background:#fff;border:1px solid var(--border);border-radius:8px;padding:16px}
+.chart-title{font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--red);margin-bottom:14px}
+.bar-chart{display:flex;align-items:flex-end;gap:10px;height:115px;padding-bottom:20px;position:relative}
+.bar-chart::after{content:'';position:absolute;left:0;right:0;bottom:20px;height:1px;background:var(--border)}
+.bar-group{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px}
+.bar{width:100%;border-radius:3px 3px 0 0;cursor:pointer;transition:height .5s ease,background .35s,outline .2s;min-width:30px}
+.bar:hover{opacity:.8}
+.bar-year{font-size:10px;color:var(--muted);font-family:var(--mono)}
+.density-canvas{width:100%;height:120px}
+
+/* BOTTOM */
+.bottom-row{display:grid;grid-template-columns:1fr auto;gap:16px;margin:0 24px 24px;align-items:start}
+.ranking-card{background:#fff;border:1px solid var(--border);border-radius:8px;padding:16px 20px}
+.ranking-header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:16px}
+.ranking-header h3{font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--red)}
+.ranking-header span{font-size:10px;font-weight:600;color:var(--muted);letter-spacing:.5px}
+.rank-item{margin-bottom:14px}
+.rank-item:last-child{margin-bottom:0}
+.rank-name-row{display:flex;justify-content:space-between;margin-bottom:5px;font-size:12px;font-weight:500}
+.rank-pct{font-weight:700;font-family:var(--mono)}
+.rank-bar-track{height:6px;background:#f0f2f5;border-radius:3px;overflow:hidden}
+.rank-bar-fill{height:100%;border-radius:3px;background:var(--red);transition:width .7s ease}
+.rank-highlight .rank-pct{color:var(--red)}
+.rank-highlight .rank-bar-fill{background:var(--red)}
+.rank-other .rank-pct{color:#999}
+.rank-other .rank-bar-fill{background:#e0a0a0}
+.ghsl-card{background:#fff;border:1px solid var(--border);border-radius:8px;padding:16px 20px;min-width:220px}
+.ghsl-title{display:flex;align-items:center;gap:8px;margin-bottom:16px}
+.ghsl-badge-icon{background:#e0f5f0;color:var(--teal-dark);width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px}
+.ghsl-title h3{font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--text)}
+.ghsl-row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px}
+.ghsl-row:last-of-type{border-bottom:none}
+.ghsl-val{font-weight:600;font-family:var(--mono)}
+.f1-row{display:flex;justify-content:space-between;align-items:baseline;margin-top:12px;padding-top:12px;border-top:2px solid var(--border)}
+.f1-label{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
+.f1-value{font-size:26px;font-weight:700;font-family:var(--mono);color:var(--teal-dark)}
+
+/* fade-in */
+@keyframes pop{from{opacity:.3;transform:translateY(3px)}to{opacity:1;transform:translateY(0)}}
+.pop{animation:pop .32s ease}
+
+.tooltip{position:fixed;background:rgba(26,26,46,.92);color:#fff;padding:6px 10px;border-radius:5px;font-size:11px;pointer-events:none;opacity:0;transition:opacity .15s;z-index:9999;font-family:var(--mono)}
+
+@media(max-width:860px){.maps-row,.metrics-row,.charts-row,.bottom-row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <h1>Urban Sprawl Dashboard (2000–2024)</h1>
+  <div class="topbar-icons">
+    <button title="Settings">⚙</button>
+    <button id="downloadBtn" title="Download">⬇</button>
+  </div>
+</header>
+
+<div class="filterbar">
+  <div class="filter-group">
+    <span class="filter-label">City Selection</span>
+    <select class="city-select" id="citySelect">
+      <option value="paris">Paris, France</option>
+      <option value="bangkok">Bangkok, Thailand</option>
+      <option value="atlanta">Atlanta, USA</option>
+      <option value="mexico">Mexico City, Mexico</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <span class="filter-label">Reference Year</span>
+    <div class="year-btns">
+      <button class="year-btn" data-year="2000">2000</button>
+      <button class="year-btn" data-year="2010">2010</button>
+      <button class="year-btn" data-year="2020">2020</button>
+      <button class="year-btn active" data-year="2024">2024</button>
+    </div>
+  </div>
+  <div class="toggle-wrap">
+    <span class="filter-label">Layers</span>
+    <span style="font-size:12px;font-weight:500">Show GHSL</span>
+    <label class="toggle"><input type="checkbox" checked id="ghslToggle"/><span class="slider"></span></label>
+  </div>
+</div>
+
+<!-- MAPS -->
+<div class="maps-row">
+  <div class="map-panel">
+    <div class="map-label">Base Map (OpenStreetMap)</div>
+    <canvas id="osmCanvas" style="position:absolute;top:0;left:0;width:100%;height:100%"></canvas>
+    <div id="lbl-city-osm"  class="map-overlay-label" style="top:36%;left:34%;font-size:18px;color:#1a1a2e;text-shadow:1px 1px 3px rgba(255,255,255,.9)"></div>
+    <div id="lbl-sub1"      class="map-overlay-label" style="top:20%;left:8%;font-size:11px;color:#333;text-shadow:1px 1px 2px rgba(255,255,255,.8)"></div>
+    <div id="lbl-sub2"      class="map-overlay-label" style="top:54%;left:56%;font-size:10px;color:#444;text-shadow:1px 1px 2px rgba(255,255,255,.8)"></div>
+    <div class="map-credit">© OpenStreetMap contributors</div>
+  </div>
+  <div class="map-panel">
+    <div class="map-label" id="buiLabel">BUI Map (2024)</div>
+    <canvas id="buiCanvas" style="position:absolute;top:0;left:0;width:100%;height:100%"></canvas>
+    <div id="lbl-city-bui" class="map-overlay-label" style="top:36%;left:34%;font-size:18px;color:#fff;text-shadow:1px 1px 4px rgba(0,0,0,.7)"></div>
+    <div style="position:absolute;bottom:10px;right:10px;background:rgba(255,255,255,.94);border:1px solid var(--border);border-radius:5px;padding:7px 11px;font-size:11px;z-index:5;display:flex;flex-direction:column;gap:4px">
+      <div style="font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin-bottom:2px">BUI Index</div>
+      <div style="width:80px;height:10px;border-radius:3px;background:linear-gradient(to right,#1565c0,#388e3c,#f9a825,#e65100,#b71c1c)"></div>
+      <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted);width:80px;font-family:var(--mono)"><span>−1</span><span>0</span><span>+1</span></div>
+      <div style="display:flex;align-items:center;gap:5px;margin-top:3px"><div style="width:10px;height:10px;border-radius:2px;background:#b71c1c"></div><span>High Built-up</span></div>
+      <div style="display:flex;align-items:center;gap:5px"><div style="width:10px;height:10px;border-radius:2px;background:#388e3c"></div><span>Vegetation</span></div>
+      <div style="display:flex;align-items:center;gap:5px"><div style="width:10px;height:10px;border-radius:2px;background:#1565c0"></div><span>Water</span></div>
+    </div>
+    <div class="map-credit">NDBI−NDVI composite</div>
+  </div>
+</div>
+
+<!-- METRICS -->
+<div class="metrics-row">
+  <div class="metric-card">
+    <div class="metric-label">Built-up Area</div>
+    <div class="metric-value" id="mBuiltup">—</div>
+    <div class="metric-badge badge-red" id="mBuiltupBadge">—</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-label">Annual Growth</div>
+    <div class="metric-value" id="mGrowth">—</div>
+    <div class="metric-badge badge-teal" id="mGrowthBadge">—</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-label">Compactness</div>
+    <div class="metric-value" id="mCompact">—</div>
+    <div class="metric-badge badge-orange" id="mCompactBadge">—</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-label">Fragmentation</div>
+    <div class="metric-value" id="mFrag">—</div>
+    <div class="metric-badge badge-gray" id="mFragBadge">—</div>
+  </div>
+</div>
+
+<!-- CHARTS -->
+<div class="charts-row">
+  <div class="chart-card">
+    <div class="chart-title">Growth Over Time (km²)</div>
+    <div class="bar-chart" id="growthChart">
+      <div class="bar-group"><div class="bar" id="bar0"></div><div class="bar-year">2000</div></div>
+      <div class="bar-group"><div class="bar" id="bar1"></div><div class="bar-year">2010</div></div>
+      <div class="bar-group"><div class="bar" id="bar2"></div><div class="bar-year">2020</div></div>
+      <div class="bar-group"><div class="bar" id="bar3"></div><div class="bar-year">2024</div></div>
+    </div>
+  </div>
+  <div class="chart-card">
+    <div class="chart-title">Fragmentation Trend</div>
+    <svg id="fragSvg" viewBox="0 0 280 140" xmlns="http://www.w3.org/2000/svg" style="width:100%;overflow:visible"></svg>
+  </div>
+  <div class="chart-card">
+    <div class="chart-title">Distance–Density Curve</div>
+    <canvas class="density-canvas" id="densityCanvas"></canvas>
+    <div style="font-size:9px;text-align:right;color:var(--muted);margin-top:4px">Distance (km) →</div>
+  </div>
+</div>
+
+<!-- BOTTOM -->
+<div class="bottom-row">
+  <div class="ranking-card">
+    <div class="ranking-header"><h3>Regional Growth Ranking</h3><span>Annual Growth Rate</span></div>
+    <div id="rankingList"></div>
+  </div>
+  <div class="ghsl-card">
+    <div class="ghsl-title"><div class="ghsl-badge-icon">✓</div><h3>GHSL Validation</h3></div>
+    <div class="ghsl-row"><span>Accuracy</span><span class="ghsl-val" id="gAcc">—</span></div>
+    <div class="ghsl-row"><span>Precision</span><span class="ghsl-val" id="gPrec">—</span></div>
+    <div class="ghsl-row"><span>Recall</span><span class="ghsl-val" id="gRec">—</span></div>
+    <div class="f1-row"><span class="f1-label">F1-Score</span><span class="f1-value" id="gF1">—</span></div>
+  </div>
+</div>
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// CITY DATA
+// ═══════════════════════════════════════════════════════
+const CITIES = {
+  paris: {
+    label:'Paris', country:'France',
+    lat:48.8566, lon:2.3522, zoom:11,
+    sub1:'Banlieue Nord', sub2:'La Défense',
+    geo:{ water:0.04, veg:0.30, spread:0.60, riverY:0.55, riverW:0.035 },
+    // km² area at [2000,2010,2020,2024]
+    km2:[2110, 2248, 2389, 2430],
+    yearData:{
+      '2000':{ builtup:'2,110', growth:'0.8', compact:'0.71', frag:'1,240', vsVal:'+3%', prevYear:'1990', growthTxt:'Slow stable',    compTxt:'High concentration',      fragTxt:'Low discontinuity',       fragPts:[1080,1130,1180,1210,1225,1235,1240], ghsl:{acc:'92.1%',prec:'91.0%',rec:'90.5%',f1:'0.907'} },
+      '2010':{ builtup:'2,248', growth:'0.9', compact:'0.70', frag:'1,310', vsVal:'+6%', prevYear:'2000', growthTxt:'Slow stable',    compTxt:'High concentration',      fragTxt:'Low discontinuity',       fragPts:[1100,1150,1200,1240,1270,1295,1310], ghsl:{acc:'92.8%',prec:'91.5%',rec:'91.2%',f1:'0.913'} },
+      '2020':{ builtup:'2,389', growth:'1.0', compact:'0.69', frag:'1,395', vsVal:'+6%', prevYear:'2010', growthTxt:'Slight increase',compTxt:'High concentration',      fragTxt:'Low discontinuity',       fragPts:[1120,1175,1225,1265,1300,1360,1395], ghsl:{acc:'93.4%',prec:'92.1%',rec:'91.8%',f1:'0.919'} },
+      '2024':{ builtup:'2,430', growth:'1.1', compact:'0.68', frag:'1,420', vsVal:'+2%', prevYear:'2020', growthTxt:'Stable trend',   compTxt:'High concentration',      fragTxt:'Low discontinuity',       fragPts:[1130,1185,1235,1280,1315,1385,1420], ghsl:{acc:'94.0%',prec:'92.8%',rec:'92.2%',f1:'0.925'} }
+    },
+    ranking:[{c:'Paris',p:1.1},{c:'Bordeaux',p:1.3},{c:'Toulouse',p:1.5},{c:'Lyon',p:0.9},{c:'Lille',p:0.7}]
+  },
+
+  bangkok: {
+    label:'Bangkok', country:'Thailand',
+    lat:13.7563, lon:100.5018, zoom:11,
+    sub1:'Nonthaburi', sub2:'Samut Prakan',
+    geo:{ water:0.14, veg:0.18, spread:0.80, riverY:0.48, riverW:0.06 },
+    km2:[1569, 2104, 2876, 3142],
+    yearData:{
+      '2000':{ builtup:'1,569', growth:'2.9', compact:'0.48', frag:'3,100', vsVal:'+18%',prevYear:'1990', growthTxt:'Rapid growth',   compTxt:'Medium concentration',    fragTxt:'Moderate discontinuity',  fragPts:[1800,2050,2350,2650,2850,3000,3100], ghsl:{acc:'91.5%',prec:'90.3%',rec:'89.8%',f1:'0.900'} },
+      '2010':{ builtup:'2,104', growth:'3.2', compact:'0.46', frag:'3,780', vsVal:'+22%',prevYear:'2000', growthTxt:'Rapid growth',   compTxt:'Medium concentration',    fragTxt:'High discontinuity',      fragPts:[1800,2100,2500,2900,3200,3550,3780], ghsl:{acc:'92.0%',prec:'91.0%',rec:'90.5%',f1:'0.907'} },
+      '2020':{ builtup:'2,876', growth:'3.5', compact:'0.43', frag:'4,450', vsVal:'+25%',prevYear:'2010', growthTxt:'Accelerating',   compTxt:'Low concentration',       fragTxt:'High discontinuity',      fragPts:[1800,2200,2650,3100,3600,4100,4450], ghsl:{acc:'92.8%',prec:'91.8%',rec:'91.2%',f1:'0.915'} },
+      '2024':{ builtup:'3,142', growth:'3.6', compact:'0.41', frag:'4,820', vsVal:'+9%', prevYear:'2020', growthTxt:'Accelerating',   compTxt:'Low concentration',       fragTxt:'High discontinuity',      fragPts:[1800,2250,2700,3150,3700,4250,4820], ghsl:{acc:'93.5%',prec:'92.4%',rec:'91.9%',f1:'0.921'} }
+    },
+    ranking:[{c:'Bangkok',p:3.6},{c:'Pattaya',p:3.1},{c:'Chiang Mai',p:2.8},{c:'Phuket',p:2.5},{c:'Khon Kaen',p:2.2}]
+  },
+
+  atlanta: {
+    label:'Atlanta', country:'USA',
+    lat:33.7490, lon:-84.3880, zoom:10,
+    sub1:'Buckhead', sub2:'Marietta',
+    geo:{ water:0.03, veg:0.44, spread:0.52, riverY:0.62, riverW:0.025 },
+    km2:[2980, 3521, 3940, 4108],
+    yearData:{
+      '2000':{ builtup:'2,980', growth:'2.2', compact:'0.38', frag:'5,600', vsVal:'+28%',prevYear:'1990', growthTxt:'High sprawl',    compTxt:'Very low concentration',  fragTxt:'Very high discontinuity', fragPts:[3200,3600,4100,4650,5000,5300,5600], ghsl:{acc:'90.8%',prec:'89.5%',rec:'89.0%',f1:'0.892'} },
+      '2010':{ builtup:'3,521', growth:'1.8', compact:'0.36', frag:'6,100', vsVal:'+18%',prevYear:'2000', growthTxt:'Slowing',        compTxt:'Very low concentration',  fragTxt:'Very high discontinuity', fragPts:[3200,3700,4300,4900,5350,5800,6100], ghsl:{acc:'91.4%',prec:'90.2%',rec:'89.8%',f1:'0.899'} },
+      '2020':{ builtup:'3,940', growth:'1.5', compact:'0.35', frag:'6,480', vsVal:'+12%',prevYear:'2010', growthTxt:'Moderating',     compTxt:'Very low concentration',  fragTxt:'Very high discontinuity', fragPts:[3200,3800,4400,5050,5500,6000,6480], ghsl:{acc:'91.9%',prec:'90.8%',rec:'90.3%',f1:'0.905'} },
+      '2024':{ builtup:'4,108', growth:'1.4', compact:'0.34', frag:'6,720', vsVal:'+4%', prevYear:'2020', growthTxt:'Moderating',     compTxt:'Very low concentration',  fragTxt:'Very high discontinuity', fragPts:[3200,3850,4500,5100,5600,6150,6720], ghsl:{acc:'92.5%',prec:'91.4%',rec:'90.9%',f1:'0.911'} }
+    },
+    ranking:[{c:'Raleigh',p:2.4},{c:'Charlotte',p:2.1},{c:'Dallas',p:1.6},{c:'Atlanta',p:1.4},{c:'Nashville',p:1.8}]
+  },
+
+  mexico: {
+    label:'Mexico City', country:'Mexico',
+    lat:19.4326, lon:-99.1332, zoom:11,
+    sub1:'Ecatepec', sub2:'Tlalpan',
+    geo:{ water:0.02, veg:0.20, spread:0.84, riverY:0.72, riverW:0.02 },
+    km2:[3820, 4380, 5012, 5248],
+    yearData:{
+      '2000':{ builtup:'3,820', growth:'1.8', compact:'0.44', frag:'4,200', vsVal:'+15%',prevYear:'1990', growthTxt:'Active growth',  compTxt:'Medium concentration',    fragTxt:'Moderate discontinuity',  fragPts:[2500,2750,3050,3400,3700,4000,4200], ghsl:{acc:'91.2%',prec:'90.0%',rec:'89.5%',f1:'0.897'} },
+      '2010':{ builtup:'4,380', growth:'2.0', compact:'0.42', frag:'4,850', vsVal:'+15%',prevYear:'2000', growthTxt:'Active growth',  compTxt:'Medium concentration',    fragTxt:'Moderate discontinuity',  fragPts:[2500,2800,3150,3550,3900,4400,4850], ghsl:{acc:'91.8%',prec:'90.7%',rec:'90.1%',f1:'0.904'} },
+      '2020':{ builtup:'5,012', growth:'2.2', compact:'0.40', frag:'5,560', vsVal:'+14%',prevYear:'2010', growthTxt:'Accelerating',   compTxt:'Low concentration',       fragTxt:'High discontinuity',      fragPts:[2500,2900,3300,3750,4200,4900,5560], ghsl:{acc:'92.3%',prec:'91.2%',rec:'90.7%',f1:'0.909'} },
+      '2024':{ builtup:'5,248', growth:'2.3', compact:'0.39', frag:'5,810', vsVal:'+5%', prevYear:'2020', growthTxt:'Accelerating',   compTxt:'Low concentration',       fragTxt:'High discontinuity',      fragPts:[2500,2950,3350,3800,4300,5000,5810], ghsl:{acc:'93.1%',prec:'92.0%',rec:'91.5%',f1:'0.917'} }
+    },
+    ranking:[{c:'Tijuana',p:2.7},{c:'Monterrey',p:2.5},{c:'Mexico City',p:2.3},{c:'Guadalajara',p:2.0},{c:'Puebla',p:1.8}]
+  }
+};
+
+const YEARS=['2000','2010','2020','2024'];
+const BAR_COLORS=['#f5c6c2','#e07b72','#c94f42','#c0392b'];
+let currentCity='paris', currentYear='2024';
+
+// ═══════════════════════════════════════════════════════
+// MAIN UPDATE
+// ═══════════════════════════════════════════════════════
+function update() {
+  const city = CITIES[currentCity];
+  const d    = city.yearData[currentYear];
+  const yIdx = YEARS.indexOf(currentYear);
+
+  // Metrics
+  flash('mBuiltup','mGrowth','mCompact','mFrag','mBuiltupBadge','mGrowthBadge','mCompactBadge','mFragBadge','gAcc','gPrec','gRec','gF1');
+  set('mBuiltup', d.builtup+' <span>km²</span>');
+  set('mGrowth',  d.growth +' <span>%/year</span>');
+  set('mCompact', d.compact);
+  set('mFrag',    d.frag   +' <span>patches</span>');
+  setText('mBuiltupBadge', `↑ ${d.vsVal} vs ${d.prevYear}`);
+  setText('mGrowthBadge',  `≈ ${d.growthTxt}`);
+  setText('mCompactBadge', `⊞ ${d.compTxt}`);
+  setText('mFragBadge',    `✦ ${d.fragTxt}`);
+  setText('gAcc',  d.ghsl.acc);
+  setText('gPrec', d.ghsl.prec);
+  setText('gRec',  d.ghsl.rec);
+  setText('gF1',   d.ghsl.f1);
+
+  // Growth bars — all 4 years, highlight current
+  const maxKm = Math.max(...city.km2);
+  YEARS.forEach((yr,i)=>{
+    const b   = document.getElementById('bar'+i);
+    const h   = Math.round((city.km2[i]/maxKm)*100);
+    b.style.height = h+'px';
+    const active = yr===currentYear;
+    b.style.background = active ? '#c0392b' : BAR_COLORS[i];
+    b.style.outline    = active ? '2px solid #922b21' : 'none';
+    b.dataset.tip = `${yr}: ${city.km2[i].toLocaleString()} km²`;
+  });
+
+  // Frag SVG
+  drawFragSVG(d.fragPts);
+
+  // Density curve — shape driven by compactness
+  drawDensity(parseFloat(d.compact));
+
+  // Ranking
+  buildRanking(city.ranking, city.label);
+
+  // Map labels
+  setText('lbl-city-osm', city.label);
+  setText('lbl-city-bui', city.label);
+  setText('lbl-sub1',     city.sub1);
+  setText('lbl-sub2',     city.sub2);
+  setText('buiLabel',     `BUI Map (${currentYear})`);
+
+  // Redraw maps
+  drawOSM(city.lat, city.lon, city.zoom);
+  drawBUI(city.geo, currentYear);
+
+  bindTips();
+}
+
+function set(id,html)    { document.getElementById(id).innerHTML=html }
+function setText(id,txt) { document.getElementById(id).textContent=txt }
+function flash(...ids)   { ids.forEach(id=>{ const el=document.getElementById(id); el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }) }
+
+// ═══════════════════════════════════════════════════════
+// FRAG SVG — static line graph
+// ═══════════════════════════════════════════════════════
+function drawFragSVG(pts) {
+  const svg = document.getElementById('fragSvg');
+  const pL=38,pR=10,pT=10,pB=22,W=280,H=110;
+  const cW=W-pL-pR, cH=H-pT-pB;
+  const maxV=Math.max(...pts)*1.08, minV=Math.min(...pts)*0.90;
+  const xs=[0,40,80,120,160,200,240].map(v=>pL+v*(cW/240));
+  const ys=pts.map(v=>pT+cH-((v-minV)/(maxV-minV))*cH);
+  const xlabs=['2000','2003','2006','2010','2015','2020','2024'];
+  let h=`<defs><linearGradient id="fg2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#4fc3f7" stop-opacity=".35"/><stop offset="100%" stop-color="#4fc3f7" stop-opacity=".03"/></linearGradient></defs>`;
+  // grid + y-labels
+  for(let i=0;i<=4;i++){
+    const y=pT+(i/4)*cH;
+    const val=Math.round(maxV-(i/4)*(maxV-minV));
+    const lbl=val>=1000?(val/1000).toFixed(1)+'k':val;
+    h+=`<line x1="${pL}" y1="${y}" x2="${W-pR}" y2="${y}" stroke="#f0f2f5" stroke-width="1"/>`;
+    h+=`<text x="${pL-4}" y="${y+3}" text-anchor="end" font-size="7.5" fill="#aab" font-family="IBM Plex Mono,monospace">${lbl}</text>`;
+  }
+  // axes
+  h+=`<line x1="${pL}" y1="${pT}" x2="${pL}" y2="${H-pB}" stroke="#dde" stroke-width="1"/>`;
+  h+=`<line x1="${pL}" y1="${H-pB}" x2="${W-pR}" y2="${H-pB}" stroke="#dde" stroke-width="1"/>`;
+  // area
+  let poly=xs.map((x,i)=>`${x},${ys[i]}`).join(' ')+` ${xs[xs.length-1]},${H-pB} ${xs[0]},${H-pB}`;
+  h+=`<polygon points="${poly}" fill="url(#fg2)"/>`;
+  // line
+  h+=`<polyline points="${xs.map((x,i)=>`${x},${ys[i]}`).join(' ')}" fill="none" stroke="#4fc3f7" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+  // trend line
+  h+=`<line x1="${xs[0]}" y1="${ys[0]}" x2="${xs[xs.length-1]}" y2="${ys[ys.length-1]}" stroke="#0288d1" stroke-width="1.2" stroke-dasharray="5,4" opacity=".6"/>`;
+  // dots
+  xs.forEach((x,i)=>{
+    const last=i===xs.length-1;
+    h+=`<circle cx="${x}" cy="${ys[i]}" r="${last?4:3.5}" fill="${last?'#4fc3f7':'#fff'}" stroke="${last?'#fff':'#4fc3f7'}" stroke-width="2"/>`;
+  });
+  // value labels first/last
+  h+=`<text x="${xs[0]}" y="${ys[0]-6}" text-anchor="middle" font-size="7.5" fill="#0288d1" font-family="IBM Plex Mono,monospace">${pts[0].toLocaleString()}</text>`;
+  h+=`<text x="${xs[xs.length-1]}" y="${ys[ys.length-1]-6}" text-anchor="middle" font-size="7.5" fill="#0288d1" font-family="IBM Plex Mono,monospace">${pts[pts.length-1].toLocaleString()}</text>`;
+  // x labels
+  [0,2,3,5,6].forEach(i=>{ h+=`<text x="${xs[i]}" y="${H-5}" text-anchor="middle" font-size="7.5" fill="#aab" font-family="IBM Plex Mono,monospace">${xlabs[i]}</text>`; });
+  // y title
+  h+=`<text transform="rotate(-90,9,${pT+cH/2})" x="9" y="${pT+cH/2}" text-anchor="middle" font-size="7.5" fill="#aab" font-family="IBM Plex Sans,sans-serif">Patches</text>`;
+  // legend
+  h+=`<line x1="${pL}" y1="128" x2="${pL+18}" y2="128" stroke="#4fc3f7" stroke-width="2.5"/>`;
+  h+=`<text x="${pL+22}" y="131" font-size="8" fill="#555" font-family="IBM Plex Sans,sans-serif">Patch count</text>`;
+  h+=`<line x1="145" y1="128" x2="163" y2="128" stroke="#0288d1" stroke-width="1.2" stroke-dasharray="4,3"/>`;
+  h+=`<text x="167" y="131" font-size="8" fill="#555" font-family="IBM Plex Sans,sans-serif">Linear trend</text>`;
+  svg.innerHTML=h;
+}
+
+// ═══════════════════════════════════════════════════════
+// DENSITY CURVE — decay shaped by compactness
+// ═══════════════════════════════════════════════════════
+function drawDensity(compact) {
+  const canvas=document.getElementById('densityCanvas');
+  const DPR=window.devicePixelRatio||1;
+  const W=canvas.offsetWidth, H=120;
+  canvas.width=W*DPR; canvas.height=H*DPR;
+  const ctx=canvas.getContext('2d');
+  ctx.scale(DPR,DPR); ctx.clearRect(0,0,W,H);
+  // decay: compact city (Paris 0.68) → slower decay; sprawl (Atlanta 0.34) → faster
+  const decay=2.2+((0.75-compact)/0.45)*3.5;
+  // grid
+  for(let i=0;i<=4;i++){
+    const y=10+(i*(H-25)/4);
+    ctx.strokeStyle='#f0f2f5'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(30,y); ctx.lineTo(W-10,y); ctx.stroke();
+  }
+  ctx.strokeStyle='#dde'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(30,10); ctx.lineTo(30,H-15); ctx.lineTo(W-10,H-15); ctx.stroke();
+  // actual (red)
+  ctx.strokeStyle='#c0392b'; ctx.lineWidth=2.5; ctx.beginPath();
+  for(let x=0;x<=W-40;x++){
+    const t=x/(W-40);
+    const y=(H-25)*Math.exp(-decay*t)+10;
+    x===0?ctx.moveTo(x+30,y):ctx.lineTo(x+30,y);
+  }
+  ctx.stroke();
+  // GHSL dashed
+  ctx.strokeStyle='#2c3e50'; ctx.lineWidth=1.5; ctx.setLineDash([5,4]); ctx.beginPath();
+  for(let x=0;x<=W-40;x++){
+    const t=x/(W-40);
+    const y=(H-25)*Math.exp(-(decay*.87)*t)*(1+0.04*Math.sin(t*8))+12;
+    x===0?ctx.moveTo(x+30,y):ctx.lineTo(x+30,y);
+  }
+  ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle='#aab'; ctx.font=`9px IBM Plex Mono,monospace`;
+  ctx.fillText('Density',0,14);
+}
+
+// ═══════════════════════════════════════════════════════
+// RANKING
+// ═══════════════════════════════════════════════════════
+function buildRanking(items, activeLabel) {
+  const sorted=[...items].sort((a,b)=>b.p-a.p);
+  const maxP=sorted[0].p;
+  let h='';
+  sorted.forEach(r=>{
+    const isActive=r.c===activeLabel||activeLabel.startsWith(r.c)||r.c===activeLabel.split(' ')[0];
+    const fillW=Math.round((r.p/maxP)*100);
+    h+=`<div class="rank-item ${isActive?'rank-highlight':'rank-other'}">
+      <div class="rank-name-row"><span>${r.c}</span><span class="rank-pct">${r.p.toFixed(1)}%</span></div>
+      <div class="rank-bar-track"><div class="rank-bar-fill" style="width:${fillW}%"></div></div>
+    </div>`;
+  });
+  document.getElementById('rankingList').innerHTML=h;
+}
+
+// ═══════════════════════════════════════════════════════
+// OSM TILE MAP
+// ═══════════════════════════════════════════════════════
+function lon2t(lon,z){return Math.floor((lon+180)/360*Math.pow(2,z))}
+function lat2t(lat,z){return Math.floor((1-Math.log(Math.tan(lat*Math.PI/180)+1/Math.cos(lat*Math.PI/180))/Math.PI)/2*Math.pow(2,z))}
+
+function drawOSM(lat,lon,zoom){
+  const canvas=document.getElementById('osmCanvas');
+  const cont=canvas.parentElement;
+  const W=cont.offsetWidth,H=cont.offsetHeight;
+  canvas.width=W; canvas.height=H;
+  const ctx=canvas.getContext('2d');
+  ctx.fillStyle='#dce8d4'; ctx.fillRect(0,0,W,H);
+  const T=256, n=Math.pow(2,zoom);
+  const tX=lon2t(lon,zoom), tY=lat2t(lat,zoom);
+  const xf=(lon+180)/360*n, yf=(1-Math.log(Math.tan(lat*Math.PI/180)+1/Math.cos(lat*Math.PI/180))/Math.PI)/2*n;
+  const xo=(xf-tX)*T, yo=(yf-tY)*T;
+  const oX=Math.round(W/2-xo-2*T), oY=Math.round(H/2-yo-1*T);
+  for(let r=0;r<3;r++) for(let c=0;c<4;c++){
+    const tx=tX-2+c, ty=tY-1+r;
+    const s=['a','b','c'][(tx+ty)%3];
+    const url=`https://${s}.tile.openstreetmap.org/${zoom}/${tx}/${ty}.png`;
+    const img=new Image(); img.crossOrigin='anonymous';
+    const ox=oX+c*T, oy2=oY+r*T;
+    img.onload=()=>ctx.drawImage(img,ox,oy2,T,T);
+    img.onerror=()=>{ ctx.fillStyle='#dce8d4'; ctx.fillRect(ox,oy2,T,T); ctx.strokeStyle='#c8d8c0'; ctx.strokeRect(ox,oy2,T,T); };
+    img.src=url;
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// BUI MAP — varies by city geography + year
+// ═══════════════════════════════════════════════════════
+function drawBUI(geo, year){
+  const canvas=document.getElementById('buiCanvas');
+  const cont=canvas.parentElement;
+  const W=cont.offsetWidth, H=cont.offsetHeight;
+  canvas.width=W; canvas.height=H;
+  const ctx=canvas.getContext('2d');
+  // year factor: earlier years = less built-up
+  const yf={'2000':0.55,'2010':0.68,'2020':0.82,'2024':0.95}[year]||0.95;
+
+  function buiColor(v){
+    const t=(v+1)/2;
+    if(t<0.12) return [21,101,192];
+    if(t<0.26) return [26,107,58];
+    if(t<0.42) return [76,153,90];
+    if(t<0.55) return [200,180,100];
+    if(t<0.68) return [210,120,40];
+    if(t<0.82) return [190,60,30];
+    return [140,20,20];
+  }
+  function noise(x,y,s){const n=Math.sin(x*127.1*s+y*311.7*s)*43758.5453;return n-Math.floor(n)}
+
+  const imgData=ctx.createImageData(W,H);
+  const dArr=imgData.data;
+  const cx=W*.45, cy=H*.50;
+
+  for(let py=0;py<H;py++) for(let px=0;px<W;px++){
+    const nx=px/W, ny=py/H;
+    const dx=(px-cx)/(W*.5), dy=(py-cy)/(H*.5);
+    const dist=Math.sqrt(dx*dx+dy*dy);
+    // water
+    const river=Math.exp(-Math.pow((ny-geo.riverY)/geo.riverW,2))*geo.water*9;
+    const lkd=Math.sqrt(Math.pow((nx-.72)*2,2)+Math.pow((ny-.32)*1.4,2));
+    const lake=Math.exp(-lkd*5)*geo.water*4;
+    const water=Math.max(river,lake);
+    // vegetation (more at periphery)
+    const veg=Math.max(0,(dist-.25)*geo.veg*2.5);
+    // urban core grows with year factor
+    const effSpread=geo.spread*(0.6+yf*0.5);
+    const urban=Math.max(0,1-dist/effSpread)*yf;
+    // noise
+    const nT=noise(nx,ny,1.0)*.15+noise(nx*3,ny*2.5,2.2)*.09+noise(nx*7,ny*6,.5)*.05;
+    let bui;
+    if(water>.55)     bui=-0.82+nT*.1;
+    else if(lake>.3)  bui=-0.65+nT*.15;
+    else              bui=-0.38+urban*1.25+nT-veg*.35;
+    bui=Math.max(-1,Math.min(1,bui));
+    const [r,g,b]=buiColor(bui);
+    const idx=(py*W+px)*4;
+    dArr[idx]=r;dArr[idx+1]=g;dArr[idx+2]=b;dArr[idx+3]=255;
+  }
+  ctx.putImageData(imgData,0,0);
+  // vignette
+  const vg=ctx.createRadialGradient(W/2,H/2,H*.2,W/2,H/2,H*.75);
+  vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(0,0,0,.2)');
+  ctx.fillStyle=vg; ctx.fillRect(0,0,W,H);
+}
+
+// ═══════════════════════════════════════════════════════
+// TOOLTIPS
+// ═══════════════════════════════════════════════════════
+function bindTips(){
+  const tt=document.getElementById('tooltip');
+  document.querySelectorAll('[data-tip]').forEach(el=>{
+    el.onmouseenter=()=>{tt.textContent=el.dataset.tip;tt.style.opacity='1'};
+    el.onmousemove=e=>{tt.style.left=(e.clientX+14)+'px';tt.style.top=(e.clientY-6)+'px'};
+    el.onmouseleave=()=>{tt.style.opacity='0'};
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// EVENTS
+// ═══════════════════════════════════════════════════════
+document.getElementById('citySelect').addEventListener('change',e=>{currentCity=e.target.value;update()});
+document.querySelectorAll('.year-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.year-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    currentYear=btn.dataset.year;
+    update();
+  });
+});
+document.getElementById('downloadBtn').addEventListener('click',()=>{
+  const a=document.createElement('a');
+  a.href='data:text/html;charset=utf-8,'+encodeURIComponent(document.documentElement.outerHTML);
+  a.download=`urban_sprawl_${currentCity}_${currentYear}.html`;
+  a.click();
+});
+
+window.addEventListener('load',()=>update());
+window.addEventListener('resize',()=>update());
+</script>
+</body>
+</html>
